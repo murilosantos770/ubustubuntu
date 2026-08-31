@@ -1,0 +1,60 @@
+name: Ubuntu RDP
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Instalar XFCE e XRDP
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            xfce4 \
+            xfce4-goodies \
+            xrdp \
+            curl
+
+      - name: Criar usuário RDP
+        run: |
+          sudo useradd -m -s /bin/bash rdpuser
+          echo 'rdpuser:123456' | sudo chpasswd
+          sudo usermod -aG sudo rdpuser
+
+      - name: Configurar sessão XFCE
+        run: |
+          echo "startxfce4" | sudo tee /home/rdpuser/.xsession
+          sudo chown rdpuser:rdpuser /home/rdpuser/.xsession
+
+      - name: Configurar XRDP
+        run: |
+          sudo systemctl enable xrdp
+          sudo systemctl restart xrdp
+
+      - name: Instalar Cloudflare Tunnel
+        run: |
+          curl -L \
+            https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb \
+            -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Iniciar túnel
+        run: |
+          nohup cloudflared tunnel --url tcp://localhost:3389 > tunnel.log 2>&1 &
+          sleep 15
+          cat tunnel.log
+
+      - name: Manter servidor ativo
+        run: |
+          echo "================================="
+          echo "Ubuntu RDP está rodando!"
+          echo "Usuário: rdpuser"
+          echo "Senha: 123456"
+          echo "================================="
+
+          while true; do
+            sleep 60
+          done
